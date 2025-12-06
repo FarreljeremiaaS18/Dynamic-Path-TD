@@ -1,14 +1,14 @@
 import pygame
 import sys
-from config import * # Ambil setting
+import random  
+from config import *
 from entities import Tower, Enemy, Projectile, astar
 
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_W, SCREEN_H))
-pygame.display.set_caption("Tower Defense A* - Modular")
+pygame.display.set_caption("Tower Defense A* - Random Map")
 clock = pygame.time.Clock()
 
-# Font Setup
 font = pygame.font.SysFont("Consolas", 16)
 font_title = pygame.font.SysFont("Consolas", 20, bold=True)
 font_menu_title = pygame.font.SysFont("Consolas", 40, bold=True)
@@ -17,6 +17,11 @@ font_overlay = pygame.font.SysFont("Consolas", 50, bold=True)
 
 class GameState:
     def __init__(self, max_waves):
+        # LOGIKA RANDOM POSISI START & GOAL
+        self.start_pos = (0, random.randint(0, GRID_H - 1))
+        self.goal_pos = (GRID_W - 1, random.randint(0, GRID_H - 1))
+        
+
         self.grid_blocked = set()
         self.towers = []
         self.enemies = []
@@ -30,32 +35,39 @@ class GameState:
         self.spawned = 0
         self.selected_tower_type = 1
         self.default_path = []
-        self.game_result = None  # "VICTORY" or "DEFEAT"
+        self.game_result = None
+        
         self.recalc_all_paths()
 
     def recalc_all_paths(self):
         blocked = set(self.grid_blocked)
-        if START_POS in blocked: blocked.remove(START_POS)
-        if GOAL_POS in blocked: blocked.remove(GOAL_POS)
-        path = astar(START_POS, GOAL_POS, blocked)
+        
+        if self.start_pos in blocked: blocked.remove(self.start_pos)
+        if self.goal_pos in blocked: blocked.remove(self.goal_pos)
+        
+        path = astar(self.start_pos, self.goal_pos, blocked)
         self.default_path = path
+        
         for e in self.enemies:
             cur_cell = (int(e.pos[0] // TILE), int(e.pos[1] // TILE))
-            p = astar(cur_cell, GOAL_POS, blocked)
+            p = astar(cur_cell, self.goal_pos, blocked)
             e.set_path(p if p else [cur_cell])
             if p and p[0] != cur_cell: e.path.insert(0, cur_cell)
 
     def place_tower(self, cell):
         if self.game_result: return
-        if self.wave_in_progress: return 
-        if cell == START_POS or cell == GOAL_POS: return
-        if cell in self.grid_blocked: return
+        if self.wave_in_progress: return # Tidak bisa place saat wave jalan
+
+        # Cek collision dengan start/goal dinamis
+        if cell == self.start_pos or cell == self.goal_pos: return
         
+        if cell in self.grid_blocked: return
         stats = TOWER_TYPES[self.selected_tower_type]
         if self.money < stats["cost"]: return
         
         self.grid_blocked.add(cell)
-        if astar(START_POS, GOAL_POS, self.grid_blocked) is None:
+        # Cek apakah memblokir jalan dari start ke goal
+        if astar(self.start_pos, self.goal_pos, self.grid_blocked) is None:
             self.grid_blocked.remove(cell)
             return 
         
@@ -95,8 +107,9 @@ class GameState:
             self.spawn_timer -= dt
             current_wave_count = BASE_WAVE_ENEMIES + (self.wave * 2)
             while self.spawned < current_wave_count and self.spawn_timer <= 0:
-                e = Enemy(START_POS, self.wave)
-                e.set_path(list(self.default_path) if self.default_path else [START_POS])
+                
+                e = Enemy(self.start_pos, self.wave)
+                e.set_path(list(self.default_path) if self.default_path else [self.start_pos])
                 self.enemies.append(e)
                 self.spawned += 1
                 self.spawn_timer += SPAWN_INTERVAL
@@ -142,23 +155,20 @@ def draw_menu(surf):
     draw_centered_text(surf, "Select Difficulty:", font, (200, 200, 200), (SCREEN_W//2, 140))
     
     mx, my = pygame.mouse.get_pos()
-    
     buttons = [
         (pygame.Rect(SCREEN_W//2 - 100, 190, 200, 50), BTN_EASY, "EASY (3 Waves)", 3),
         (pygame.Rect(SCREEN_W//2 - 100, 260, 200, 50), BTN_MED, "MEDIUM (6 Waves)", 6),
         (pygame.Rect(SCREEN_W//2 - 100, 330, 200, 50), BTN_HARD, "HARD (10 Waves)", 10),
-        (pygame.Rect(SCREEN_W//2 - 100, 400, 200, 50), BTN_EXIT, "EXIT GAME", "EXIT"), 
+        (pygame.Rect(SCREEN_W//2 - 100, 400, 200, 50), BTN_EXIT, "EXIT GAME", "EXIT"),
     ]
     
     selection = None
     for rect, col, txt, val in buttons:
         color = col
         if rect.collidepoint(mx, my):
-            # Efek hover (sedikit lebih terang)
             color = (min(255, col[0]+40), min(255, col[1]+40), min(255, col[2]+40))
             if pygame.mouse.get_pressed()[0]:
                 selection = val
-        
         pygame.draw.rect(surf, color, rect, border_radius=10)
         draw_centered_text(surf, txt, font_menu_btn, (255, 255, 255), rect.center)
     
@@ -166,14 +176,16 @@ def draw_menu(surf):
 
 def draw_game(surf, state):
     surf.fill(BG_GAME)
-    # Path
+    
     if state.default_path:
         pts = [((c[0]+0.5)*TILE, (c[1]+0.5)*TILE) for c in state.default_path]
         if len(pts) > 1: pygame.draw.lines(surf, PATH_COLOR, False, pts, 6)
     
-    # Start/Goal
-    pygame.draw.rect(surf, (60,180,80), (START_POS[0]*TILE+2, START_POS[1]*TILE+2, TILE-4, TILE-4))
-    pygame.draw.rect(surf, (180,60,60), (GOAL_POS[0]*TILE+2, GOAL_POS[1]*TILE+2, TILE-4, TILE-4))
+    # Start (Hijau) & Goal (Merah)
+    sx, sy = state.start_pos
+    gx, gy = state.goal_pos
+    pygame.draw.rect(surf, (60,180,80), (sx*TILE+2, sy*TILE+2, TILE-4, TILE-4))
+    pygame.draw.rect(surf, (180,60,60), (gx*TILE+2, gy*TILE+2, TILE-4, TILE-4))
 
     # Objects
     for t in state.towers:
@@ -195,7 +207,7 @@ def draw_game(surf, state):
         surf.blit(font.render(s, True, TEXT_COLOR), (x_off, y_off))
         y_off += 25
     
-    # Shop Buttons (Visual)
+    # Shop Buttons
     y_off += 20
     mx, my = pygame.mouse.get_pos()
     for tid, data in TOWER_TYPES.items():
@@ -268,7 +280,6 @@ def main():
                         if event.button == 1: game_state.place_tower(cell)
                         elif event.button == 3: game_state.remove_tower(cell)
 
-        # Draw / Update
         if game_state is None:
             action = draw_menu(screen)
             if action == "EXIT":
@@ -279,24 +290,19 @@ def main():
             game_state.update(dt)
             draw_game(screen, game_state)
             
-            # Hover Ghost Tower
             mx, my = pygame.mouse.get_pos()
             if mx < GRID_W * TILE and not game_state.game_result:
                 hx, hy = mx // TILE, my // TILE
-                
-                valid = (hx, hy) not in game_state.grid_blocked \
-                        and (hx, hy) != START_POS \
-                        and (hx, hy) != GOAL_POS \
-                        and not game_state.wave_in_progress 
 
+                valid = (hx, hy) not in game_state.grid_blocked \
+                        and (hx, hy) != game_state.start_pos \
+                        and (hx, hy) != game_state.goal_pos \
+                        and not game_state.wave_in_progress
+                
                 col = TOWER_TYPES[game_state.selected_tower_type]["color"]
                 s = pygame.Surface((TILE, TILE), pygame.SRCALPHA)
-                
-                # Jika valid warna tower, jika tidak valid warna Merah (Invalid)
                 s.fill((col[0], col[1], col[2], 100) if valid else (200, 50, 50, 100))
                 screen.blit(s, (hx*TILE, hy*TILE))
-                
-                # Hanya gambar lingkaran range jika valid
                 if valid:
                      range_px = TOWER_TYPES[game_state.selected_tower_type]["range"] * TILE
                      pygame.draw.circle(screen, (255, 255, 255), (int((hx+0.5)*TILE), int((hy+0.5)*TILE)), int(range_px), 1)

@@ -8,8 +8,8 @@ SCREEN_H = TILE * GRID_H
 FPS = 60
 
 # Posisi Start & Finish
-START_POS = (0, GRID_H // 2)
-GOAL_POS = (GRID_W - 1, GRID_H // 2)
+#START_POS = (0, GRID_H // 2)
+#GOAL_POS = (GRID_W - 1, GRID_H // 2)
 
 # Konfigurasi Tower (Tipe 1, 2, 3)
 TOWER_TYPES = {
