@@ -38,6 +38,9 @@ class GameState:
         self.default_path = []
         self.game_result = None
         
+        # === POINT SYSTEM ===
+        self.score = 0
+
         self.recalc_all_paths()
 
     def recalc_all_paths(self):
@@ -102,6 +105,9 @@ class GameState:
             return
         if self.wave == self.max_waves and not self.wave_in_progress and len(self.enemies) == 0:
             self.game_result = "VICTORY"
+
+            # === POINT SYSTEM ===
+            self.score += 500
             return
 
         if self.wave_in_progress:
@@ -118,13 +124,24 @@ class GameState:
                 self.wave_in_progress = False
                 self.money += 50 + (self.wave * 10)
 
+                # === POINT SYSTEM ===
+                self.score += 100
+
         for e in list(self.enemies):
             e.update(dt)
             if e.reached_goal:
                 self.health -= 1
+                
+                # === POINT SYSTEM ===
+                self.score = max(0, self.score - 5)
+
                 self.enemies.remove(e)
             elif e.hp <= 0:
                 self.money += 5 + self.wave
+
+                # === POINT SYSTEM ===
+                self.score += 10 * self.wave
+
                 self.enemies.remove(e)
 
         for t in self.towers:
@@ -278,7 +295,7 @@ def draw_game(surf, state):
     y_off = 15
     surf.blit(font_title.render("STATS", True, (255,255,255)), (x_off, y_off))
     y_off += 30
-    for s in [f"Money : ${state.money}", f"Lives : {state.health}", f"Wave  : {state.wave} / {state.max_waves}"]:
+    for s in [f"Money : ${state.money}", f"Lives : {state.health}", f"Wave  : {state.wave} / {state.max_waves}", f"Score : {state.score}"]:
         surf.blit(font.render(s, True, TEXT_COLOR), (x_off, y_off))
         y_off += 25
     
