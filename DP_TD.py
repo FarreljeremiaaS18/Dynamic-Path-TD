@@ -311,6 +311,7 @@ def draw_menu(surf):
     return selection
 
 def draw_game(surf, state):
+    # 1. Gambar Map / Tiles
     zone = get_difficulty_zone(state.max_waves)
     tileset = TILESETS[zone]
 
@@ -322,11 +323,69 @@ def draw_game(surf, state):
         for cx, cy in state.default_path:
             surf.blit(tileset["path"], (cx * TILE, cy * TILE))
 
+    # 2. Gambar Start & Goal
     sx, sy = state.start_pos
     gx, gy = state.goal_pos
-    pygame.draw.rect(surf, (60,180,80), (sx*TILE+2, sy*TILE+2, TILE-4, TILE-4))
-    pygame.draw.rect(surf, (180,60,60), (gx*TILE+2, gy*TILE+2, TILE-4, TILE-4))
+    
+    sx_px, sy_px = sx * TILE, sy * TILE
+    gx_px, gy_px = gx * TILE, gy * TILE
 
+    pygame.draw.rect(surf, (60,180,80), (sx_px+2, sy_px+2, TILE-4, TILE-4))
+    pygame.draw.rect(surf, (180,60,60), (gx_px+2, gy_px+2, TILE-4, TILE-4))
+    
+    # Konfigurasi Bar
+    bar_w = 40
+    bar_h = 6
+    
+    # === A. Base Kita (Goal) ===
+    if gy == 0:
+        base_bar_y = gy_px + TILE + 4       # Di bawah tile
+        base_text_y = gy_px + TILE + 18     # Di bawah bar
+    else:
+        base_bar_y = gy_px - 8              # Di atas tile
+        base_text_y = gy_px - 22            # Di atas bar
+    
+    base_bar_x = gx_px + TILE//2 - bar_w//2
+
+    # Gambar Teks (HP Base)
+    draw_centered_text(surf, f"{int(state.health)}", font_small, (255, 255, 255), (gx_px + TILE//2, base_text_y))
+    
+    # Gambar HP Bar Base
+    max_lives = 20.0
+    lives_pct = max(0, state.health / max_lives)
+    pygame.draw.rect(surf, (50, 0, 0), (base_bar_x, base_bar_y, bar_w, bar_h))
+    pygame.draw.rect(surf, (0, 255, 0), (base_bar_x, base_bar_y, int(bar_w * lives_pct), bar_h))
+
+
+    # B. Base Musuh (Start/Spawn)
+    if sy == 0:
+        spawn_bar_y = sy_px + TILE + 4
+        spawn_text_y = sy_px + TILE + 18
+    else:
+        spawn_bar_y = sy_px - 8
+        spawn_text_y = sy_px - 22
+        
+    spawn_bar_x = sx_px + TILE//2 - bar_w//2
+
+    # Hitung data musuh
+    if state.wave_in_progress:
+        total_wave_enemies = BASE_WAVE_ENEMIES + (state.wave * 2)
+        current_threat = (total_wave_enemies - state.spawned) + len(state.enemies)
+        threat_pct = max(0, current_threat / total_wave_enemies)
+        enemy_text = f"{int(current_threat)}"
+    else:
+        threat_pct = 0.0
+        enemy_text = "0"
+    
+    # Gambar Teks (Sisa Musuh)
+    draw_centered_text(surf, enemy_text, font_small, (255, 255, 255), (sx_px + TILE//2, spawn_text_y))
+    
+    # Gambar Bar Merah (Indikator Wave)
+    pygame.draw.rect(surf, (50, 0, 0), (spawn_bar_x, spawn_bar_y, bar_w, bar_h))
+    pygame.draw.rect(surf, (255, 50, 50), (spawn_bar_x, spawn_bar_y, int(bar_w * threat_pct), bar_h))
+
+
+    # 3. Gambar Tower
     for t in state.towers:
         pygame.draw.rect(
             surf,
@@ -340,6 +399,7 @@ def draw_game(surf, state):
             6
         )
 
+    # 4. Gambar Musuh
     for e in state.enemies:
         pygame.draw.circle(surf, e.color, (int(e.pos[0]), int(e.pos[1])), 10)
         pygame.draw.rect(
@@ -348,6 +408,7 @@ def draw_game(surf, state):
             (e.pos[0]-10, e.pos[1]-16, 20 * (e.hp/e.max_hp), 3)
         )
 
+    # 5. Gambar Projectile
     for p in state.projectiles:
         pygame.draw.circle(
             surf,
@@ -356,6 +417,7 @@ def draw_game(surf, state):
             4
         )
 
+    # 6. Gambar UI Sidebar
     pygame.draw.rect(
         surf,
         BG_SIDEBAR,
@@ -406,39 +468,31 @@ def draw_game(surf, state):
               (x_off, SCREEN_H - 30))
 
     if state.game_result:
-        # 1. Latar belakang gelap transparan
         overlay = pygame.Surface((SCREEN_W, SCREEN_H), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 180))
-        surf.blit(overlay, (0, 0))
+        surf.blit(overlay, (0,0))
 
-        # 2. Warna teks (Hijau jika menang, Merah jika kalah)
-        col = (100, 255, 100) if state.game_result == "VICTORY" else (255, 100, 100)
-        
-        # 3. Tampilkan Teks "VICTORY" atau "DEFEAT" 
+        col = (100,255,100) if state.game_result == "VICTORY" else (255,100,100)
         draw_centered_text(
             surf,
             state.game_result,
             font_overlay,
             col,
-            (SCREEN_W // 2, SCREEN_H // 2 - 50)
+            (SCREEN_W//2, SCREEN_H//2 - 50)
         )
-
-        # 4. Tampilkan SKOR AKHIR 
         draw_centered_text(
             surf,
             f"Final Score: {state.score}",
-            font_menu_btn, 
-            (255, 255, 255), 
-            (SCREEN_W // 2, SCREEN_H // 2 + 10)
+            font_menu_btn,
+            (255, 255, 255),
+            (SCREEN_W//2, SCREEN_H//2 + 10)
         )
-
-        # 5. Tampilkan instruksi keluar 
         draw_centered_text(
             surf,
             "Press ESC to Menu",
             font,
-            (200, 200, 200),
-            (SCREEN_W // 2, SCREEN_H // 2 + 60)
+            (200,200,200),
+            (SCREEN_W//2, SCREEN_H//2 + 60)
         )
 
 
