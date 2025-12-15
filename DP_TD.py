@@ -5,6 +5,24 @@ from config import *
 from entities import Tower, Enemy, Projectile, astar
 
 pygame.init()
+
+# Load Assets
+def load_tile(path):
+    img = pygame.image.load(path)
+    return pygame.transform.scale(img, (TILE, TILE))
+
+# EASY TILE
+TILE_GRASS = load_tile("assets/tiles/grass.png")
+TILE_EPATH  = load_tile("assets/tiles/easy_path.png")
+
+# MEDIUM TILE
+TILE_SANDSTONE = load_tile("assets/tiles/sand.png")
+TILE_MPATH = load_tile("assets/tiles/medium_path.png")
+
+# HARD TILE
+TILE_DUNGEON = load_tile("assets/tiles/dungeon.png")
+TILE_HPATH = load_tile("assets/tiles/hard_path.png")
+
 screen = pygame.display.set_mode((SCREEN_W, SCREEN_H))
 pygame.display.set_caption("Tower Defense A* - Random Map")
 clock = pygame.time.Clock()
@@ -15,6 +33,32 @@ font_menu_title = pygame.font.SysFont("Consolas", 40, bold=True)
 font_menu_btn = pygame.font.SysFont("Consolas", 24, bold=True)
 font_overlay = pygame.font.SysFont("Consolas", 50, bold=True)
 font_small = pygame.font.SysFont("Consolas", 14)
+
+# Menentukan difficulty game
+def get_difficulty_zone(wave):
+    if wave == 3:
+        return "easy"
+    elif wave == 6:
+        return "medium"
+    else:
+        return "hard"
+
+# Menentukan tile berdasarkan difficulty game
+TILESETS = {
+    "easy": {
+        "base": TILE_GRASS,
+        "path": TILE_EPATH
+    },
+    "medium": {
+        "base": TILE_SANDSTONE,
+        "path": TILE_MPATH
+    },
+    "hard": {
+        "base": TILE_DUNGEON,
+        "path": TILE_HPATH
+    }
+}
+
 
 class GameState:
     def __init__(self, max_waves):
@@ -38,7 +82,7 @@ class GameState:
         self.default_path = []
         self.game_result = None
         
-        # === POINT SYSTEM ===
+        # POINT SYSTEM
         self.score = 0
 
         self.recalc_all_paths()
@@ -106,7 +150,7 @@ class GameState:
         if self.wave == self.max_waves and not self.wave_in_progress and len(self.enemies) == 0:
             self.game_result = "VICTORY"
 
-            # === POINT SYSTEM ===
+            # POINT SYSTEM
             self.score += 500
             return
 
@@ -124,7 +168,7 @@ class GameState:
                 self.wave_in_progress = False
                 self.money += 50 + (self.wave * 10)
 
-                # === POINT SYSTEM ===
+                # POINT SYSTEM
                 self.score += 100
 
         for e in list(self.enemies):
@@ -132,14 +176,14 @@ class GameState:
             if e.reached_goal:
                 self.health -= 1
                 
-                # === POINT SYSTEM ===
+                # POINT SYSTEM
                 self.score = max(0, self.score - 5)
 
                 self.enemies.remove(e)
             elif e.hp <= 0:
                 self.money += 5 + self.wave
 
-                # === POINT SYSTEM ===
+                # POINT SYSTEM
                 self.score += 10 * self.wave
 
                 self.enemies.remove(e)
@@ -267,69 +311,121 @@ def draw_menu(surf):
     return selection
 
 def draw_game(surf, state):
-    surf.fill(BG_GAME)
-    
+    zone = get_difficulty_zone(state.max_waves)
+    tileset = TILESETS[zone]
+
+    for x in range(GRID_W):
+        for y in range(GRID_H):
+            surf.blit(tileset["base"], (x * TILE, y * TILE))
+
     if state.default_path:
-        pts = [((c[0]+0.5)*TILE, (c[1]+0.5)*TILE) for c in state.default_path]
-        if len(pts) > 1: pygame.draw.lines(surf, PATH_COLOR, False, pts, 6)
-    
-    # Start (Hijau) & Goal (Merah)
+        for cx, cy in state.default_path:
+            surf.blit(tileset["path"], (cx * TILE, cy * TILE))
+
     sx, sy = state.start_pos
     gx, gy = state.goal_pos
     pygame.draw.rect(surf, (60,180,80), (sx*TILE+2, sy*TILE+2, TILE-4, TILE-4))
     pygame.draw.rect(surf, (180,60,60), (gx*TILE+2, gy*TILE+2, TILE-4, TILE-4))
 
-    # Objects
     for t in state.towers:
-        pygame.draw.rect(surf, t.color, (t.cell[0]*TILE+2, t.cell[1]*TILE+2, TILE-4, TILE-4))
-        pygame.draw.circle(surf, (30,30,30), (int((t.cell[0]+0.5)*TILE), int((t.cell[1]+0.5)*TILE)), 6)
+        pygame.draw.rect(
+            surf,
+            t.color,
+            (t.cell[0]*TILE+2, t.cell[1]*TILE+2, TILE-4, TILE-4)
+        )
+        pygame.draw.circle(
+            surf,
+            (30,30,30),
+            (int((t.cell[0]+0.5)*TILE), int((t.cell[1]+0.5)*TILE)),
+            6
+        )
+
     for e in state.enemies:
         pygame.draw.circle(surf, e.color, (int(e.pos[0]), int(e.pos[1])), 10)
-        pygame.draw.rect(surf, (0,200,0), (e.pos[0]-10, e.pos[1]-16, 20 * (e.hp/e.max_hp), 3))
-    for p in state.projectiles:
-        pygame.draw.circle(surf, PROJECTILE_COLOR, (int(p.pos[0]), int(p.pos[1])), 4)
+        pygame.draw.rect(
+            surf,
+            (0,200,0),
+            (e.pos[0]-10, e.pos[1]-16, 20 * (e.hp/e.max_hp), 3)
+        )
 
-    # UI Sidebar
-    pygame.draw.rect(surf, BG_SIDEBAR, (GRID_W * TILE, 0, SIDEBAR_W, SCREEN_H))
+    for p in state.projectiles:
+        pygame.draw.circle(
+            surf,
+            PROJECTILE_COLOR,
+            (int(p.pos[0]), int(p.pos[1])),
+            4
+        )
+
+    pygame.draw.rect(
+        surf,
+        BG_SIDEBAR,
+        (GRID_W * TILE, 0, SIDEBAR_W, SCREEN_H)
+    )
+
     x_off = GRID_W * TILE + 15
     y_off = 15
     surf.blit(font_title.render("STATS", True, (255,255,255)), (x_off, y_off))
     y_off += 30
-    for s in [f"Money : ${state.money}", f"Lives : {state.health}", f"Wave  : {state.wave} / {state.max_waves}", f"Score : {state.score}"]:
+
+    for s in [
+        f"Money : ${state.money}",
+        f"Lives : {state.health}",
+        f"Wave  : {state.wave} / {state.max_waves}",
+        f"Score : {state.score}"
+    ]:
         surf.blit(font.render(s, True, TEXT_COLOR), (x_off, y_off))
         y_off += 25
-    
-    # Shop Buttons
+
     y_off += 20
     mx, my = pygame.mouse.get_pos()
+
     for tid, data in TOWER_TYPES.items():
         r = pygame.Rect(x_off, y_off, SIDEBAR_W - 30, 50)
         col = BTN_SELECTED if state.selected_tower_type == tid else BTN_COLOR
-        if r.collidepoint(mx, my) and state.selected_tower_type != tid: col = BTN_HOVER
+        if r.collidepoint(mx, my) and state.selected_tower_type != tid:
+            col = BTN_HOVER
+
         pygame.draw.rect(surf, col, r, border_radius=5)
         pygame.draw.rect(surf, data["color"], (x_off+5, y_off+5, 15, 15))
-        surf.blit(font.render(f"{data['name']} (${data['cost']})", True, (255,255,255)), (x_off+25, y_off+5))
+        surf.blit(
+            font.render(f"{data['name']} (${data['cost']})", True, (255,255,255)),
+            (x_off+25, y_off+5)
+        )
         y_off += 60
 
-    # Start Wave Button
     start_r = pygame.Rect(x_off, SCREEN_H - 120, SIDEBAR_W - 30, 40)
     col = (100, 60, 60) if state.wave_in_progress else (60, 120, 60)
-    if not state.wave_in_progress and start_r.collidepoint(mx, my): col = (80, 140, 80)
+    if not state.wave_in_progress and start_r.collidepoint(mx, my):
+        col = (80, 140, 80)
+
     pygame.draw.rect(surf, col, start_r, border_radius=5)
     txt = "Wave Incoming" if state.wave_in_progress else "NEXT WAVE"
     draw_centered_text(surf, txt, font, (255,255,255), start_r.center)
-    
-    # Instructions
-    surf.blit(font.render("ESC: Menu", True, (150,150,150)), (x_off, SCREEN_H - 30))
 
-    # Overlay
+    surf.blit(font.render("ESC: Menu", True, (150,150,150)),
+              (x_off, SCREEN_H - 30))
+
     if state.game_result:
         overlay = pygame.Surface((SCREEN_W, SCREEN_H), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 180))
         surf.blit(overlay, (0,0))
-        col = (100, 255, 100) if state.game_result == "VICTORY" else (255, 100, 100)
-        draw_centered_text(surf, state.game_result, font_overlay, col, (SCREEN_W//2, SCREEN_H//2 - 20))
-        draw_centered_text(surf, "Press ESC to Menu", font, (200,200,200), (SCREEN_W//2, SCREEN_H//2 + 30))
+
+        col = (100,255,100) if state.game_result == "VICTORY" else (255,100,100)
+        draw_centered_text(
+            surf,
+            state.game_result,
+            font_overlay,
+            col,
+            (SCREEN_W//2, SCREEN_H//2 - 20)
+        )
+        draw_centered_text(
+            surf,
+            "Press ESC to Menu",
+            font,
+            (200,200,200),
+            (SCREEN_W//2, SCREEN_H//2 + 30)
+        )
+
 
 # Main Execution
 def main():
