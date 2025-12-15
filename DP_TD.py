@@ -24,7 +24,7 @@ TILE_DUNGEON = load_tile("assets/tiles/dungeon.png")
 TILE_HPATH = load_tile("assets/tiles/hard_path.png")
 
 screen = pygame.display.set_mode((SCREEN_W, SCREEN_H))
-pygame.display.set_caption("Tower Defense A* - Random Map")
+pygame.display.set_caption("Dynamic Path - TD")
 clock = pygame.time.Clock()
 
 font = pygame.font.SysFont("Consolas", 16)
@@ -71,7 +71,7 @@ class GameState:
         self.towers = []
         self.enemies = []
         self.projectiles = []
-        self.money = 250
+        self.money = STARTING_MONEY[max_waves]
         self.health = 20
         self.wave = 0
         self.max_waves = max_waves
@@ -406,24 +406,39 @@ def draw_game(surf, state):
               (x_off, SCREEN_H - 30))
 
     if state.game_result:
+        # 1. Latar belakang gelap transparan
         overlay = pygame.Surface((SCREEN_W, SCREEN_H), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 180))
-        surf.blit(overlay, (0,0))
+        surf.blit(overlay, (0, 0))
 
-        col = (100,255,100) if state.game_result == "VICTORY" else (255,100,100)
+        # 2. Warna teks (Hijau jika menang, Merah jika kalah)
+        col = (100, 255, 100) if state.game_result == "VICTORY" else (255, 100, 100)
+        
+        # 3. Tampilkan Teks "VICTORY" atau "DEFEAT" 
         draw_centered_text(
             surf,
             state.game_result,
             font_overlay,
             col,
-            (SCREEN_W//2, SCREEN_H//2 - 20)
+            (SCREEN_W // 2, SCREEN_H // 2 - 50)
         )
+
+        # 4. Tampilkan SKOR AKHIR 
+        draw_centered_text(
+            surf,
+            f"Final Score: {state.score}",
+            font_menu_btn, 
+            (255, 255, 255), 
+            (SCREEN_W // 2, SCREEN_H // 2 + 10)
+        )
+
+        # 5. Tampilkan instruksi keluar 
         draw_centered_text(
             surf,
             "Press ESC to Menu",
             font,
-            (200,200,200),
-            (SCREEN_W//2, SCREEN_H//2 + 30)
+            (200, 200, 200),
+            (SCREEN_W // 2, SCREEN_H // 2 + 60)
         )
 
 

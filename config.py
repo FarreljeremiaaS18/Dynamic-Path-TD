@@ -40,3 +40,10 @@ BTN_EASY = (60, 160, 80)
 BTN_MED = (200, 160, 40)
 BTN_HARD = (200, 60, 60)
 BTN_EXIT = (80, 80, 80)
+
+# Uang Awal Berdasarkan Tingkat Kesulitan
+STARTING_MONEY = {
+    3: 350,   # Easy (3 Wave) -> Uang banyak
+    6: 250,   # Medium (6 Wave) -> Uang sedang
+    10: 150   # Hard (10 Wave) -> Uang sedikit
+}
