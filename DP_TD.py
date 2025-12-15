@@ -80,6 +80,16 @@ TILESETS = {
     }
 }
 
+# Menentukan multiplier untuk tiap difficulty
+DIFFICULTY_MULTIPLIER = {
+    3: 1.0,    # EASY
+    6: 1.5,    # MEDIUM
+    10: 2.0    # HARD
+}
+
+MULTIPLIER_DECAY_PER_TOWER = 0.05
+MIN_MULTIPLIER = 0.3
+
 
 class GameState:
     def __init__(self, max_waves):
@@ -105,6 +115,9 @@ class GameState:
         
         # POINT SYSTEM
         self.score = 0
+        self.base_multiplier = DIFFICULTY_MULTIPLIER[max_waves]
+        self.score_multiplier = self.base_multiplier
+        self.towers_placed = 0
 
         self.recalc_all_paths()
 
@@ -133,6 +146,13 @@ class GameState:
         if cell in self.grid_blocked: return
         stats = TOWER_TYPES[self.selected_tower_type]
         if self.money < stats["cost"]: return
+
+        # Multiplier penalty
+        self.towers_placed += 1
+        self.score_multiplier = max(
+            MIN_MULTIPLIER,
+            self.base_multiplier - (self.towers_placed * MULTIPLIER_DECAY_PER_TOWER)
+        )
         
         self.grid_blocked.add(cell)
         # Cek apakah memblokir jalan dari start ke goal
@@ -169,7 +189,7 @@ class GameState:
             self.game_result = "DEFEAT"
 
             pygame.mixer.music.stop()
-            if defeat_fx:
+            if defeat_fx:   
                 defeat_fx.play()
 
             return
@@ -181,7 +201,7 @@ class GameState:
                 victory_fx.play()
 
             # POINT SYSTEM
-            self.score += 500
+            self.score += int(500 * self.score_multiplier)
             return
 
         if self.wave_in_progress:
@@ -199,7 +219,7 @@ class GameState:
                 self.money += 50 + (self.wave * 10)
 
                 # POINT SYSTEM
-                self.score += 100
+                self.score += int(100 * self.score_multiplier)
 
         for e in list(self.enemies):
             e.update(dt)
@@ -214,7 +234,9 @@ class GameState:
                 self.money += 5 + self.wave
 
                 # POINT SYSTEM
-                self.score += 10 * self.wave
+                gained = int((10 * self.wave) * self.score_multiplier)
+                self.score += gained
+
 
                 self.enemies.remove(e)
 
