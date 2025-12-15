@@ -27,6 +27,27 @@ screen = pygame.display.set_mode((SCREEN_W, SCREEN_H))
 pygame.display.set_caption("Dynamic Path - TD")
 clock = pygame.time.Clock()
 
+# Load Audio
+victory_fx = None
+defeat_fx = None
+try:
+    victory_fx = pygame.mixer.Sound(VICTORY_SOUND_PATH)
+    victory_fx.set_volume(0.5) # Atur volume (0.0 sampai 1.0)
+except Exception as e:
+    print(f"Warning: Tidak bisa memuat suara Victory. Error: {e}")
+
+try:
+    defeat_fx = pygame.mixer.Sound(DEFEAT_SOUND_PATH)
+    defeat_fx.set_volume(0.5)
+except Exception as e:
+    print(f"Warning: Tidak bisa memuat suara kekalahan. Error: {e}")
+
+try:
+    pygame.mixer.music.load(MENU_MUSIC_PATH)
+    pygame.mixer.music.set_volume(0.4)
+except Exception as e:
+    print(f"Warning: Error loading music: {e}")
+
 font = pygame.font.SysFont("Consolas", 16)
 font_title = pygame.font.SysFont("Consolas", 20, bold=True)
 font_menu_title = pygame.font.SysFont("Consolas", 40, bold=True)
@@ -142,13 +163,22 @@ class GameState:
         self.spawned = 0
 
     def update(self, dt):
-        if self.game_result: return
+        if self.game_result: return #Cek apakah game sudah selesai
 
         if self.health <= 0:
             self.game_result = "DEFEAT"
+
+            pygame.mixer.music.stop()
+            if defeat_fx:
+                defeat_fx.play()
+
             return
         if self.wave == self.max_waves and not self.wave_in_progress and len(self.enemies) == 0:
             self.game_result = "VICTORY"
+
+            pygame.mixer.music.stop()
+            if victory_fx:
+                victory_fx.play()
 
             # POINT SYSTEM
             self.score += 500
@@ -503,6 +533,14 @@ def main():
     running = True
     last_time = pygame.time.get_ticks() / 1000.0
 
+    # Mulai Musik Menu Awal
+    try:
+        pygame.mixer.music.load(MENU_MUSIC_PATH)
+        pygame.mixer.music.set_volume(0.4)
+        pygame.mixer.music.play(-1) 
+    except Exception as e:
+        print(f"Music Error: {e}")
+
     while running:
         now = pygame.time.get_ticks() / 1000.0
         dt = now - last_time
@@ -523,7 +561,17 @@ def main():
                     elif event.key == pygame.K_1: game_state.selected_tower_type = 1
                     elif event.key == pygame.K_2: game_state.selected_tower_type = 2
                     elif event.key == pygame.K_3: game_state.selected_tower_type = 3
-                    elif event.key == pygame.K_ESCAPE: game_state = None 
+
+                    # Escape to Menu
+                    elif event.key == pygame.K_ESCAPE: 
+                        game_state = None 
+                        # Ganti kembali ke Musik Menu
+                        try:
+                            pygame.mixer.music.load(MENU_MUSIC_PATH)
+                            pygame.mixer.music.set_volume(0.4)
+                            pygame.mixer.music.play(-1)
+                        except: pass
+                 
                 
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     mx, my = event.pos
@@ -546,15 +594,24 @@ def main():
             mx, my = pygame.mouse.get_pos()
             if back_btn.collidepoint(mx, my) and pygame.mouse.get_pressed()[0]:
                 show_instructions = False
-                pygame.time.wait(200)  # Prevent instant click-through
+                pygame.time.wait(200) # Prevent instant click-through
         elif game_state is None:
             action = draw_menu(screen)
             if action == "EXIT":
                 running = False
             elif action == "INSTRUCTIONS":
                 show_instructions = True
-                pygame.time.wait(200)  # Prevent instant click-through
+                pygame.time.wait(200) # Prevent instant click-through
             elif action is not None:
+                #START GAME (GANTI MUSIK KE DRUM)
+                try:
+                    pygame.mixer.music.stop() # Stop menu music
+                    pygame.mixer.music.load(GAME_MUSIC_PATH) # Load drum
+                    pygame.mixer.music.set_volume(0.5) # Set volume
+                    pygame.mixer.music.play(-1) # Loop forever
+                except Exception as e:
+                    print(f"Game Music Error: {e}")
+                
                 game_state = GameState(action)
         else:
             game_state.update(dt)
@@ -563,12 +620,10 @@ def main():
             mx, my = pygame.mouse.get_pos()
             if mx < GRID_W * TILE and not game_state.game_result:
                 hx, hy = mx // TILE, my // TILE
-
                 valid = (hx, hy) not in game_state.grid_blocked \
                         and (hx, hy) != game_state.start_pos \
                         and (hx, hy) != game_state.goal_pos \
                         and not game_state.wave_in_progress
-                
                 col = TOWER_TYPES[game_state.selected_tower_type]["color"]
                 s = pygame.Surface((TILE, TILE), pygame.SRCALPHA)
                 s.fill((col[0], col[1], col[2], 100) if valid else (200, 50, 50, 100))

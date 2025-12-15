@@ -47,3 +47,9 @@ STARTING_MONEY = {
     6: 250,   # Medium (6 Wave) -> Uang sedang
     10: 150   # Hard (10 Wave) -> Uang sedikit
 }
+
+# Audio
+VICTORY_SOUND_PATH = "assets/audio/victory-chime-366449.mp3"
+DEFEAT_SOUND_PATH = "assets/audio/fail-trumpet-02-383962.mp3"
+MENU_MUSIC_PATH = "assets/audio/8-bit-moonlight-sonata-music-loop-20436.mp3"
+GAME_MUSIC_PATH = "assets/audio/horde-war-drums-loop-130bpm-342956.mp3"
